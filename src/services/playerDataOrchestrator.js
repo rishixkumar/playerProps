@@ -2,6 +2,7 @@ import { SPORTSDB_API_KEY } from './config';
 import { buildStatViewsForPlayer } from './espnStatCategories';
 import { espnSiteUrl } from './espnEndpoints';
 import { fetchJson } from './http';
+import { pickActiveTeamAbbr } from '../utils/espnTeamUtils';
 
 const ESPN_CORE_ATHLETE = (id) =>
   `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/${id}`;
@@ -99,25 +100,27 @@ export async function fetchSportsDbBioForEspnPlayer(displayName, espnId) {
   }
 }
 
-export async function loadLivePlayerViewModel(espnId) {
+export async function loadLivePlayerViewModel(espnId, opts = {}) {
+  const teamAbbrHint = opts.teamAbbrHint || null;
   const bundle = await fetchEspnAthleteBundle(espnId);
   const a = bundle.athlete;
   const sportsdb = await fetchSportsDbBioForEspnPlayer(a.displayName, espnId);
 
   const pos = a.position?.abbreviation || '—';
-  const teamAbbr =
-    bundle.stats?.teams && Object.values(bundle.stats.teams)[0]?.abbreviation
-      ? Object.values(bundle.stats.teams)[0].abbreviation
-      : '—';
+  const teamAbbr = pickActiveTeamAbbr(bundle.stats?.teams, teamAbbrHint);
+  const teamEntry =
+    bundle.stats?.teams &&
+    Object.values(bundle.stats.teams).find(
+      (t) => String(t.abbreviation || '').toUpperCase() === String(teamAbbr || '').toUpperCase()
+    );
 
   const profile = {
     displayName: a.displayName,
     shortName: a.shortName,
     age: a.age,
     teamAbbr,
-    teamName: bundle.stats?.teams
-      ? Object.values(bundle.stats.teams)[0]?.displayName || `${teamAbbr}`
-      : teamAbbr,
+    teamName: teamEntry?.displayName || `${teamAbbr}`,
+    espnProfileUrl: `https://www.espn.com/nfl/player/_/id/${encodeURIComponent(String(espnId))}`,
     position: pos,
     jersey: String(a.jersey ?? '—'),
     status: 'Active',

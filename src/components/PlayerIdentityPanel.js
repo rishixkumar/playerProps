@@ -22,6 +22,7 @@ export function PlayerIdentityPanel({ profile, highlights, newsHeadline }) {
     statusDetail,
     headshotHref,
     birthPlace,
+    espnProfileUrl,
   } = profile;
 
   const [imgFailed, setImgFailed] = useState(false);
@@ -73,6 +74,13 @@ export function PlayerIdentityPanel({ profile, highlights, newsHeadline }) {
         {newsHeadline && (
           <p className="identity-panel__news" title="Latest from ESPN overview">
             {newsHeadline}
+          </p>
+        )}
+        {espnProfileUrl && (
+          <p className="identity-panel__espn">
+            <a href={espnProfileUrl} target="_blank" rel="noopener noreferrer">
+              ESPN profile & career stats
+            </a>
           </p>
         )}
 

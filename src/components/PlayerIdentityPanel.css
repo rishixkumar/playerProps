@@ -156,6 +156,31 @@
   color: var(--color-text-primary);
 }
 
+/* Block layout so season line never runs into the number (inline spans have no gap). */
+.identity-panel__kpi-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.identity-panel__espn {
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+}
+
+.identity-panel__espn a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.identity-panel__espn a:hover {
+  text-decoration: underline;
+}
+
 .identity-panel__avatar--img {
   padding: 0;
   object-fit: cover;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getMockPlayer } from '../mock/player';
 import { loadLivePlayerViewModel } from '../services/playerDataOrchestrator';
+import { ensureNflPlayerIndex } from '../services/nflPlayerIndex';
 import { parsePlayerRouteId } from '../utils/playerRouteId';
 import {
   filterComparisonItems,
@@ -89,19 +90,28 @@ export function PlayerPage() {
     if (parsed.kind === 'espn') {
       setLoading(true);
       setData(null);
-      loadLivePlayerViewModel(parsed.espnId)
-        .then((vm) => {
+      (async () => {
+        let teamAbbrHint = null;
+        try {
+          const { players } = await ensureNflPlayerIndex();
+          const row = players.find((p) => String(p.espnId) === String(parsed.espnId));
+          teamAbbrHint = row?.teamAbbr || null;
+        } catch {
+          /* index optional */
+        }
+        try {
+          const vm = await loadLivePlayerViewModel(parsed.espnId, { teamAbbrHint });
           if (!cancelled) {
             setData(vm);
             setLoading(false);
           }
-        })
-        .catch((e) => {
+        } catch (e) {
           if (!cancelled) {
             setError(e.message || 'Failed to load player');
             setLoading(false);
           }
-        });
+        }
+      })();
       return () => {
         cancelled = true;
       };

@@ -5,8 +5,8 @@ import './PropsPage.css';
 // ─── fallback mock data ──────────────────────────────────────────────────────
 const MOCK_PROPS = [
   {
-    espnId: '4685382', displayName: 'Jaxon Smith-Njigba', position: 'WR', teamAbbr: 'SEA',
-    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4685382.png',
+    espnId: '4430878', displayName: 'Jaxon Smith-Njigba', position: 'WR', teamAbbr: 'SEA',
+    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4430878.png',
     teamColor: '#002a5c',
     props: [
       { statLabel: 'Receiving Yards', line: 72.5, unit: 'YDS', overOdds: '-115', underOdds: '-115', sources: [{ name: 'PrizePicks', line: 72.5 }, { name: 'Underdog', line: 71.5 }, { name: 'Sleeper', line: 73 }], projection: 79.1 },
@@ -45,8 +45,8 @@ const MOCK_PROPS = [
     ],
   },
   {
-    espnId: '4047646', displayName: 'CeeDee Lamb', position: 'WR', teamAbbr: 'DAL',
-    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4047646.png',
+    espnId: '4241389', displayName: 'CeeDee Lamb', position: 'WR', teamAbbr: 'DAL',
+    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4241389.png',
     teamColor: '#003594',
     props: [
       { statLabel: 'Receiving Yards', line: 81.5, unit: 'YDS', overOdds: '-115', underOdds: '-115', sources: [{ name: 'PrizePicks', line: 81.5 }, { name: 'Underdog', line: 80 }, { name: 'Sleeper', line: 82 }, { name: 'Chalkboard', line: 81 }], projection: 85.2 },
@@ -54,8 +54,8 @@ const MOCK_PROPS = [
     ],
   },
   {
-    espnId: '4035538', displayName: 'Justin Jefferson', position: 'WR', teamAbbr: 'MIN',
-    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4035538.png',
+    espnId: '4262921', displayName: 'Justin Jefferson', position: 'WR', teamAbbr: 'MIN',
+    headshotUrl: 'https://a.espncdn.com/i/headshots/nfl/players/full/4262921.png',
     teamColor: '#4f2683',
     props: [
       { statLabel: 'Receiving Yards', line: 84.5, unit: 'YDS', overOdds: '-115', underOdds: '-115', sources: [{ name: 'PrizePicks', line: 84.5 }, { name: 'Underdog', line: 84 }, { name: 'Sleeper', line: 85 }], projection: 88.7 },

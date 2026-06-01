@@ -21,6 +21,7 @@ export const mockPlayerById = {
       jersey: 15,
       status: 'Active',
       statusDetail: 'Probable — ankle',
+      espnProfileUrl: 'https://www.espn.com/nfl/player/_/id/3139477',
     },
     highlights: [
       { label: 'Pass Yds', value: '3,928', sub: '2024 reg' },

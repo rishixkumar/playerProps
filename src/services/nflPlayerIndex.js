@@ -2,6 +2,42 @@ import { INDEX_CACHE_KEY, INDEX_TTL_MS, ROSTER_FETCH_CONCURRENCY } from './confi
 import { espnSiteUrl } from './espnEndpoints';
 import { fetchJson } from './http';
 
+/** Retired / historic players not on current 32-team rosters — searchable by name. */
+const LEGEND_ROSTER_ENTRIES = [
+  {
+    espnId: '2330',
+    displayName: 'Tom Brady',
+    firstName: 'Tom',
+    lastName: 'Brady',
+    positionAbbr: 'QB',
+    teamAbbr: 'FA',
+    teamId: '0',
+    headshotHref: 'https://a.espncdn.com/i/headshots/nfl/players/full/2330.png',
+    routeId: 'espn-2330',
+  },
+  {
+    espnId: '14881',
+    displayName: 'Peyton Manning',
+    firstName: 'Peyton',
+    lastName: 'Manning',
+    positionAbbr: 'QB',
+    teamAbbr: 'FA',
+    teamId: '0',
+    headshotHref: 'https://a.espncdn.com/i/headshots/nfl/players/full/14881.png',
+    routeId: 'espn-14881',
+  },
+];
+
+function mergeLegendPlayers(players) {
+  const byId = new Map((players || []).map((p) => [String(p.espnId), p]));
+  for (const row of LEGEND_ROSTER_ENTRIES) {
+    if (!byId.has(row.espnId)) byId.set(row.espnId, { ...row });
+  }
+  return Array.from(byId.values()).sort((a, b) =>
+    (a.displayName || '').localeCompare(b.displayName || '')
+  );
+}
+
 const TEAMS_URL = espnSiteUrl('/apis/site/v2/sports/football/nfl/teams?limit=64');
 
 function rosterUrl(teamId) {
@@ -105,10 +141,10 @@ export function ensureNflPlayerIndex() {
   if (inflightBuild) return inflightBuild;
   const cached = readCache();
   if (cached?.length) {
-    return Promise.resolve({ players: cached, fromCache: true });
+    return Promise.resolve({ players: mergeLegendPlayers(cached), fromCache: true });
   }
   inflightBuild = (async () => {
-    const players = await buildNflPlayerIndexFromEspn();
+    const players = mergeLegendPlayers(await buildNflPlayerIndexFromEspn());
     writeCache(players);
     return { players, fromCache: false };
   })().finally(() => {
@@ -120,15 +156,21 @@ export function ensureNflPlayerIndex() {
 export function searchPlayerIndex(players, query, limit = 12) {
   const q = query.trim().toLowerCase();
   if (!q) return players.slice(0, limit);
+  const tokens = q.split(/\s+/).filter((t) => t.length >= 2);
   const scored = [];
   for (const p of players) {
     const name = (p.displayName || '').toLowerCase();
     const team = (p.teamAbbr || '').toLowerCase();
     const pos = (p.positionAbbr || '').toLowerCase();
-    if (!name.includes(q) && !team.includes(q) && !pos.includes(q)) continue;
+    const nameMatch =
+      name.includes(q) ||
+      (tokens.length > 0 &&
+        tokens.every((t) => name.includes(t) || team.includes(t) || pos.includes(t)));
+    if (!nameMatch && !team.includes(q) && !pos.includes(q)) continue;
     let score = 0;
     if (name.startsWith(q)) score += 100;
     if (name.includes(q)) score += 50 + (name.indexOf(q) === 0 ? 20 : 0);
+    if (tokens.length > 1 && tokens.every((t) => name.includes(t))) score += 80;
     if (team === q) score += 40;
     if (team.includes(q)) score += 10;
     scored.push({ p, score });
