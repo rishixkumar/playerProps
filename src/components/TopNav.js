@@ -5,12 +5,13 @@ import './TopNav.css';
 
 const APP_TABS = [
   { to: '/player/espn-3139477', label: 'Player', end: false },
-  { to: '/props', label: 'Props', disabled: true },
-  { to: '/news', label: 'News', disabled: true },
+  { to: '/props', label: 'Props', disabled: false },
+  { to: '/news', label: 'News', disabled: false },
 ];
 
 function pathMatchesTab(pathname, to) {
   if (to === '/player/espn-3139477') return pathname.startsWith('/player');
+  if (to === '/news') return pathname.startsWith('/news');
   return pathname === to;
 }
 

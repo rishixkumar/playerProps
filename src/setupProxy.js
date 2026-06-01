@@ -15,4 +15,14 @@ module.exports = function setupProxy(app) {
       logLevel: 'warn',
     })
   );
+
+  app.use(
+    '/api/espn-news',
+    createProxyMiddleware({
+      target: 'https://site.api.espn.com',
+      changeOrigin: true,
+      pathRewrite: { '^/api/espn-news': '' },
+      logLevel: 'warn',
+    })
+  );
 };

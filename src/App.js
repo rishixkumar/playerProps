@@ -2,7 +2,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { TopNav } from './components/TopNav';
 import { HomePage } from './pages/HomePage';
+import { NewsPage } from './pages/NewsPage';
 import { PlayerPage } from './pages/PlayerPage';
+import { PropsPage } from './pages/PropsPage';
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
+          <Route path="/news" element={<NewsPage />} />
+          <Route path="/props" element={<PropsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>
