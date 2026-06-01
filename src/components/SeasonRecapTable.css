@@ -1,0 +1,11 @@
+.season-recap__note {
+  margin: 0 0 var(--space-md);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.sparkline {
+  display: block;
+  width: 88px;
+  height: 28px;
+}

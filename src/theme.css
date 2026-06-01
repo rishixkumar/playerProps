@@ -1,0 +1,44 @@
+/**
+ * Playerprops — dark theme tokens (NFL app shell).
+ * Single accent: cool blue for focus, links, positive deltas.
+ */
+:root {
+  --color-bg-base: #0a0a0c;
+  --color-bg-elevated: #121214;
+  --color-surface: #1a1a1e;
+  --color-surface-hover: #222226;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  --color-accent: #38bdf8;
+  --color-accent-muted: rgba(56, 189, 248, 0.15);
+  --color-positive: #4ade80;
+  --color-negative: #f87171;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, Monaco, 'Courier New', monospace;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  --nav-height: 56px;
+  --content-max: 1280px;
+  --rail-width: 300px;
+}

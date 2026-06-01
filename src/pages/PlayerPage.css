@@ -1,0 +1,27 @@
+.player-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.player-page__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 1024px) {
+  .player-page__grid {
+    display: grid;
+    grid-template-columns: var(--rail-width) 1fr;
+    align-items: start;
+    gap: var(--space-xl);
+  }
+}
+
+.player-page__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
