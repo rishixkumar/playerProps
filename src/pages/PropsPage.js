@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getFeaturedProps, searchPlayerProps } from '../services/propsService';
+import { getPropsForTab, PROPS_TAB_LIMIT, searchPlayerProps } from '../services/propsService';
 import './PropsPage.css';
 
 // ─── fallback mock data ──────────────────────────────────────────────────────
@@ -66,17 +66,17 @@ const MOCK_PROPS = [
 
 const TABS = ['Featured', 'QB Props', 'WR Props', 'RB Props', 'Best Value'];
 
-function filterByTab(players, tab) {
-  if (tab === 'Featured') return players;
-  if (tab === 'QB Props') return players.filter(p => p.position === 'QB');
-  if (tab === 'WR Props') return players.filter(p => p.position === 'WR');
-  if (tab === 'RB Props') return players.filter(p => p.position === 'RB');
-  if (tab === 'Best Value') {
-    return players.filter(p =>
-      p.props.some(pr => pr.projection > pr.line * 1.07 || pr.projection < pr.line * 0.93)
-    );
+function tabBlurb(tab) {
+  if (tab === 'Featured') {
+    return 'Top 20 by combined scrimmage yards (pass + rush + rec) from the latest regular season ESPN leaderboards.';
   }
-  return players;
+  if (tab === 'QB Props') return 'Top 20 quarterbacks by passing yards.';
+  if (tab === 'WR Props') return 'Top 20 wide receivers by receiving yards.';
+  if (tab === 'RB Props') return 'Top 20 running backs by rushing yards.';
+  if (tab === 'Best Value') {
+    return 'Top 20 edges vs. line: biggest model gaps among leading scrimmage-yard producers.';
+  }
+  return '';
 }
 
 // ─── Projection bar ──────────────────────────────────────────────────────────
@@ -262,9 +262,8 @@ function SlipPanel({ slip, onClear, onRemove }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function PropsPage() {
   const [activeTab, setActiveTab] = useState('Featured');
-  const [featuredPlayers, setFeaturedPlayers] = useState([]);
+  const [tabPlayers, setTabPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
@@ -274,24 +273,25 @@ export function PropsPage() {
   const [slip, setSlip] = useState([]);
   const searchInputRef = useRef(null);
 
-  // Load featured props
+  // Re-query ESPN leaders + stat-derived lines whenever the tab changes
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
-    getFeaturedProps()
-      .then(data => {
+    getPropsForTab(activeTab)
+      .then((data) => {
         if (cancelled) return;
-        setFeaturedPlayers(data && data.length > 0 ? data : MOCK_PROPS);
+        setTabPlayers(data && data.length > 0 ? data : MOCK_PROPS.slice(0, Math.min(6, MOCK_PROPS.length)));
         setLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setFeaturedPlayers(MOCK_PROPS);
+        setTabPlayers(MOCK_PROPS.slice(0, Math.min(6, MOCK_PROPS.length)));
         setLoading(false);
       });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   const handleSearch = useCallback(async (e) => {
     e.preventDefault();
@@ -341,7 +341,8 @@ export function PropsPage() {
   const handleSlipClear = () => setSlip([]);
   const handleSlipRemove = (idx) => setSlip(prev => prev.filter((_, i) => i !== idx));
 
-  const displayedPlayers = filterByTab(featuredPlayers, activeTab);
+  const displayedPlayers = tabPlayers;
+  const skeletonCount = Math.min(12, PROPS_TAB_LIMIT);
 
   return (
     <div className="pp-page">
@@ -407,11 +408,13 @@ export function PropsPage() {
       {/* Season notice + tabs */}
       <div className="pp-section-head">
         <div className="pp-section-title-row">
-          <h2 className="pp-section-title">Featured props <span className="pp-title-dot">·</span> Off-season projections</h2>
+          <h2 className="pp-section-title">
+            {activeTab}
+            <span className="pp-title-dot"> · </span>
+            Top {PROPS_TAB_LIMIT}
+          </h2>
         </div>
-        <p className="pp-season-note">
-          NFL season currently off. Lines show per-game projections based on 2024 season averages and market consensus.
-        </p>
+        <p className="pp-season-note">{tabBlurb(activeTab)} Refreshed each time you open a tab.</p>
         <div className="pp-tabs" role="tablist">
           {TABS.map(tab => (
             <button
@@ -428,15 +431,11 @@ export function PropsPage() {
       </div>
 
       {/* Main grid */}
-      {error ? (
-        <div className="pp-error">
-          <span className="pp-error-icon">⚡</span>
-          <p>{error}</p>
-          <button className="pp-retry-btn" onClick={() => window.location.reload()}>Retry</button>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="pp-grid">
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: skeletonCount }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : displayedPlayers.length === 0 ? (
         <div className="pp-empty">No props available for this filter.</div>

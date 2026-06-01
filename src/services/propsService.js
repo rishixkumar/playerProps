@@ -9,6 +9,18 @@ import { pickActiveTeamAbbr } from '../utils/espnTeamUtils';
 const espnStatsUrl = (id) =>
   `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${id}/stats`;
 
+const BY_ATHLETE_STATS_URL =
+  'https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/statistics/byathlete';
+
+/** How many player cards to show per tab */
+export const PROPS_TAB_LIMIT = 20;
+
+/** How many leaderboard rows to pull before position filtering */
+const LEADERBOARD_FETCH = 50;
+
+/** Max players to score for "Best Value" before trimming to PROPS_TAB_LIMIT */
+const BEST_VALUE_CANDIDATES = 48;
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TEAM_COLORS = {
@@ -19,17 +31,6 @@ const TEAM_COLORS = {
 };
 
 const SOURCE_NAMES = ['PrizePicks', 'Underdog', 'Sleeper', 'Chalkboard'];
-
-const FEATURED_PLAYERS = [
-  { espnId: '3139477', position: 'QB', teamAbbr: 'KC', displayName: 'Patrick Mahomes' },
-  { espnId: '3918298', position: 'QB', teamAbbr: 'BUF', displayName: 'Josh Allen' },
-  { espnId: '4362628', position: 'WR', teamAbbr: 'CIN', displayName: "Ja'Marr Chase" },
-  { espnId: '4430878', position: 'WR', teamAbbr: 'SEA', displayName: 'Jaxon Smith-Njigba' },
-  { espnId: '4241389', position: 'WR', teamAbbr: 'DAL', displayName: 'CeeDee Lamb' },
-  { espnId: '4262921', position: 'WR', teamAbbr: 'MIN', displayName: 'Justin Jefferson' },
-  { espnId: '3117251', position: 'RB', teamAbbr: 'SF', displayName: 'Christian McCaffrey' },
-  { espnId: '3915511', position: 'QB', teamAbbr: 'CIN', displayName: 'Joe Burrow' },
-];
 
 // Per-player mock fallback for when ESPN fetch fails
 const MOCK_BY_ID = {
@@ -140,6 +141,198 @@ const MOCK_BY_ID = {
     ],
   },
 };
+
+// ─── Leaderboard (ESPN statistics/byathlete) ─────────────────────────────────
+
+let cachedSeasonYear = null;
+
+function buildByAthleteUrl({ season, category, sort, limit, page = 1 }) {
+  const u = new URL(BY_ATHLETE_STATS_URL);
+  u.searchParams.set('region', 'us');
+  u.searchParams.set('lang', 'en');
+  u.searchParams.set('contentorigin', 'espn');
+  u.searchParams.set('isqualified', 'false');
+  u.searchParams.set('season', String(season));
+  u.searchParams.set('seasontype', '2');
+  u.searchParams.set('category', category);
+  u.searchParams.set('sort', sort);
+  u.searchParams.set('limit', String(limit));
+  u.searchParams.set('page', String(page));
+  return u.toString();
+}
+
+async function resolveSeasonYear() {
+  if (cachedSeasonYear != null) return cachedSeasonYear;
+  for (const y of [2025, 2024, 2023]) {
+    try {
+      const url = buildByAthleteUrl({
+        season: y,
+        category: 'offense:passing',
+        sort: 'passing.passingYards:desc',
+        limit: 1,
+        page: 1,
+      });
+      const data = await fetchJson(url);
+      if (Array.isArray(data?.athletes) && data.athletes.length > 0) {
+        cachedSeasonYear = data.requestedSeason?.year ?? y;
+        return cachedSeasonYear;
+      }
+    } catch {
+      /* try next year */
+    }
+  }
+  cachedSeasonYear = 2024;
+  return cachedSeasonYear;
+}
+
+function parseStatNum(v) {
+  if (v == null) return 0;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Flatten ESPN `categories[].names` + `values` into a numeric map. */
+function namedStatsFromLeaderRow(row) {
+  const m = {};
+  for (const c of row?.categories || []) {
+    const names = c.names || [];
+    const vals = c.values;
+    if (!names.length || !Array.isArray(vals)) continue;
+    names.forEach((name, i) => {
+      m[name] = parseStatNum(vals[i]);
+    });
+  }
+  return m;
+}
+
+function hintsFromLeaderRow(row) {
+  const a = row?.athlete || {};
+  const id = a.id != null ? String(a.id) : '';
+  const pos = a.position?.abbreviation || '—';
+  const team = a.teamShortName || a.teamName || '—';
+  return {
+    espnId: id,
+    displayName: a.displayName || `Player ${id}`,
+    position: pos,
+    teamAbbr: team,
+  };
+}
+
+async function fetchLeaderboardRows(season, category, sort, limit = LEADERBOARD_FETCH) {
+  const url = buildByAthleteUrl({ season, category, sort, limit, page: 1 });
+  const data = await fetchJson(url);
+  return Array.isArray(data?.athletes) ? data.athletes : [];
+}
+
+async function mapPool(items, limit, mapper) {
+  if (!items.length) return [];
+  let next = 0;
+  const results = new Array(items.length);
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) break;
+      results[i] = await mapper(items[i], i);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  );
+  return results;
+}
+
+function scrimmageYardsFromMap(st) {
+  return (
+    (st.passingYards || 0) +
+    (st.rushingYards || 0) +
+    (st.receivingYards || 0)
+  );
+}
+
+/**
+ * Merge passing / rushing / receiving leaderboards and rank everyone who
+ * appears on any board by combined scrimmage yards.
+ */
+async function rankAllByScrimmageYards(season) {
+  const [passRows, rushRows, recRows] = await Promise.all([
+    fetchLeaderboardRows(season, 'offense:passing', 'passing.passingYards:desc'),
+    fetchLeaderboardRows(season, 'offense:rushing', 'rushing.rushingYards:desc'),
+    fetchLeaderboardRows(season, 'offense:receiving', 'receiving.receivingYards:desc'),
+  ]);
+
+  const merged = new Map();
+
+  const apply = (rows, key) => {
+    for (const row of rows) {
+      const h = hintsFromLeaderRow(row);
+      if (!h.espnId) continue;
+      const st = namedStatsFromLeaderRow(row);
+      const prev = merged.get(h.espnId) || {
+        ...h,
+        passingYards: 0,
+        rushingYards: 0,
+        receivingYards: 0,
+      };
+      if (key === 'pass') prev.passingYards = Math.max(prev.passingYards, st.passingYards || 0);
+      if (key === 'rush') prev.rushingYards = Math.max(prev.rushingYards, st.rushingYards || 0);
+      if (key === 'rec') prev.receivingYards = Math.max(prev.receivingYards, st.receivingYards || 0);
+      prev.displayName = prev.displayName || h.displayName;
+      prev.position = prev.position || h.position;
+      prev.teamAbbr = prev.teamAbbr || h.teamAbbr;
+      merged.set(h.espnId, prev);
+    }
+  };
+
+  apply(passRows, 'pass');
+  apply(rushRows, 'rush');
+  apply(recRows, 'rec');
+
+  return Array.from(merged.values())
+    .map((x) => ({
+      espnId: x.espnId,
+      displayName: x.displayName,
+      position: x.position,
+      teamAbbr: x.teamAbbr,
+      _score: scrimmageYardsFromMap({
+        passingYards: x.passingYards,
+        rushingYards: x.rushingYards,
+        receivingYards: x.receivingYards,
+      }),
+    }))
+    .sort((a, b) => b._score - a._score);
+}
+
+async function getFeaturedHints(season, n = PROPS_TAB_LIMIT) {
+  const ranked = await rankAllByScrimmageYards(season);
+  return ranked.slice(0, n).map(({ _score, ...h }) => h);
+}
+
+async function getPositionHintsFromBoard(season, category, sort, filterPos, n = PROPS_TAB_LIMIT) {
+  const rows = await fetchLeaderboardRows(season, category, sort);
+  const out = [];
+  for (const row of rows) {
+    const h = hintsFromLeaderRow(row);
+    if (!h.espnId) continue;
+    const pos = String(h.position || '').toUpperCase();
+    if (!filterPos(pos)) continue;
+    out.push(h);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
+function valueScoreForPlayer(p) {
+  if (!p?.props?.length) return 0;
+  let best = 0;
+  for (const pr of p.props) {
+    const line = Number(pr.line);
+    if (!line || line <= 0) continue;
+    const edge = Math.abs(Number(pr.projection) - line) / line;
+    if (edge > best) best = edge;
+  }
+  return best;
+}
 
 // ─── Math helpers ────────────────────────────────────────────────────────────
 
@@ -427,7 +620,6 @@ function fallbackPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHint)
 
 async function buildPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHint) {
   const id = String(espnId);
-  const featuredMeta = FEATURED_PLAYERS.find((p) => p.espnId === id);
 
   let statsJson;
 
@@ -438,14 +630,11 @@ async function buildPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHi
   }
 
   const athleteInfo = statsJson?.athlete || {};
-  const displayName =
-    featuredMeta?.displayName ?? athleteInfo.displayName ?? displayNameHint ?? `Player ${id}`;
-  const position =
-    featuredMeta?.position ?? athleteInfo.position?.abbreviation ?? positionHint ?? '—';
+  const displayName = athleteInfo.displayName ?? displayNameHint ?? `Player ${id}`;
+  const position = athleteInfo.position?.abbreviation ?? positionHint ?? '—';
 
   const teamsMap = statsJson?.teams || {};
-  const teamHint = featuredMeta?.teamAbbr || teamAbbrHint;
-  const teamAbbr = pickActiveTeamAbbr(teamsMap, teamHint);
+  const teamAbbr = pickActiveTeamAbbr(teamsMap, teamAbbrHint);
 
   const props = buildPropsForPosition(statsJson, position, id);
 
@@ -460,7 +649,7 @@ async function buildPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHi
     position,
     teamAbbr,
     headshotUrl: espnHeadshotUrl(id),
-    teamColor: TEAM_COLORS[teamAbbr] || TEAM_COLORS[teamHint] || '#1a1a2e',
+    teamColor: TEAM_COLORS[teamAbbr] || TEAM_COLORS[teamAbbrHint] || '#1a1a2e',
     props,
   };
 }
@@ -468,19 +657,63 @@ async function buildPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHi
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Returns PropPlayer objects for the 8 featured players.
- * Uses Promise.allSettled so individual failures don't block the rest.
+ * Loads prop cards for a Props page tab. Re-call on each tab change for fresh
+ * leaderboard ranks and per-player stat lines.
+ *
+ * @param {string} tabLabel UI tab: 'Featured' | 'QB Props' | 'WR Props' | 'RB Props' | 'Best Value'
  */
-export async function getFeaturedProps() {
-  const results = await Promise.allSettled(
-    FEATURED_PLAYERS.map(({ espnId, position, teamAbbr, displayName }) =>
-      buildPropPlayer(espnId, position, displayName, teamAbbr)
-    )
-  );
+export async function getPropsForTab(tabLabel) {
+  const season = await resolveSeasonYear();
+  let hints = [];
 
-  return results
-    .filter((r) => r.status === 'fulfilled' && r.value != null)
-    .map((r) => r.value);
+  if (tabLabel === 'Featured') {
+    hints = await getFeaturedHints(season, PROPS_TAB_LIMIT);
+  } else if (tabLabel === 'QB Props') {
+    hints = await getPositionHintsFromBoard(
+      season,
+      'offense:passing',
+      'passing.passingYards:desc',
+      (pos) => pos === 'QB',
+      PROPS_TAB_LIMIT
+    );
+  } else if (tabLabel === 'WR Props') {
+    hints = await getPositionHintsFromBoard(
+      season,
+      'offense:receiving',
+      'receiving.receivingYards:desc',
+      (pos) => pos === 'WR',
+      PROPS_TAB_LIMIT
+    );
+  } else if (tabLabel === 'RB Props') {
+    hints = await getPositionHintsFromBoard(
+      season,
+      'offense:rushing',
+      'rushing.rushingYards:desc',
+      (pos) => pos === 'RB' || pos === 'FB',
+      PROPS_TAB_LIMIT
+    );
+  } else if (tabLabel === 'Best Value') {
+    const ranked = await rankAllByScrimmageYards(season);
+    const pool = ranked.slice(0, BEST_VALUE_CANDIDATES).map(({ _score, ...h }) => h);
+    const built = await mapPool(pool, 5, (h) =>
+      buildPropPlayer(h.espnId, h.position, h.displayName, h.teamAbbr)
+    );
+    const ok = built.filter((p) => p && Array.isArray(p.props) && p.props.length > 0);
+    ok.sort((a, b) => valueScoreForPlayer(b) - valueScoreForPlayer(a));
+    return ok.slice(0, PROPS_TAB_LIMIT);
+  } else {
+    hints = await getFeaturedHints(season, PROPS_TAB_LIMIT);
+  }
+
+  const built = await mapPool(hints, 5, (h) =>
+    buildPropPlayer(h.espnId, h.position, h.displayName, h.teamAbbr)
+  );
+  return built.filter((p) => p != null);
+}
+
+/** @deprecated Prefer getPropsForTab('Featured') */
+export async function getFeaturedProps() {
+  return getPropsForTab('Featured');
 }
 
 /**
