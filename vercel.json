@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/espn-site/:path*",
+      "destination": "https://site.api.espn.com/:path*"
+    }
+  ]
+}

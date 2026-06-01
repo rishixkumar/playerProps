@@ -1,15 +1,29 @@
-import { useState } from 'react';
 import './StatQueryBar.css';
 
 const CHIPS = ['Yards', 'TDs', 'INTs', 'CMP%', 'Rating', 'ANY/A'];
 
-export function StatQueryBar() {
-  const [q, setQ] = useState('');
-  const [activeChip, setActiveChip] = useState(null);
-
+/**
+ * @param {{
+ *   query: string,
+ *   onQueryChange: (q: string) => void,
+ *   activeChips: string[],
+ *   onChipToggle: (chip: string) => void,
+ *   activeTokenSummary?: string,
+ * }} props
+ */
+export function StatQueryBar({ query, onQueryChange, activeChips, onChipToggle, activeTokenSummary }) {
   return (
     <div className="stat-query player-page__panel">
       <h2 className="player-page__panel-title">Stat lookup</h2>
+      <p className="stat-query__hint">
+        Narrow the season table and comparison module by label. Chips add common filters; combine
+        with text (e.g. &quot;rush&quot;, &quot;DEN&quot; for matchups).
+      </p>
+      {activeTokenSummary && (
+        <p className="stat-query__active" aria-live="polite">
+          Active filters: <strong>{activeTokenSummary}</strong>
+        </p>
+      )}
       <div className="stat-query__row">
         <div className="stat-query__input-wrap">
           <svg
@@ -28,24 +42,28 @@ export function StatQueryBar() {
           <input
             type="search"
             className="stat-query__input"
-            placeholder="Ask about a stat (visual only)…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Filter or search stats"
+            placeholder="Filter stats (e.g. yds, td, rating, DEN)…"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            aria-label="Filter stats in tables below"
           />
         </div>
       </div>
       <div className="stat-query__chips" role="group" aria-label="Quick stat filters">
-        {CHIPS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`stat-query__chip${activeChip === c ? ' is-active' : ''}`}
-            onClick={() => setActiveChip((prev) => (prev === c ? null : c))}
-          >
-            {c}
-          </button>
-        ))}
+        {CHIPS.map((c) => {
+          const active = activeChips.includes(c);
+          return (
+            <button
+              key={c}
+              type="button"
+              className={`stat-query__chip${active ? ' is-active' : ''}`}
+              aria-pressed={active}
+              onClick={() => onChipToggle(c)}
+            >
+              {c}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

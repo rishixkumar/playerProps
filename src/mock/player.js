@@ -79,6 +79,9 @@ export const mockPlayerById = {
       { opp: 'DEN', games: 2, yds: 512, td: 4, int: 1, rating: 101.2 },
       { opp: 'LAC', games: 2, yds: 478, td: 3, int: 2, rating: 94.5 },
     ],
+    seasonRecap: null,
+    newsHeadline: null,
+    sportsdb: null,
   },
   'demo-qb-2': null,
   'demo-rb': null,
@@ -87,8 +90,137 @@ export const mockPlayerById = {
 /** Default demo id when visiting /player/:id with unknown id */
 export const DEFAULT_PLAYER_ID = 'demo-qb';
 
+function buildDemoQbStatViews(demo) {
+  const passingGrid = {
+    columns: [
+      { key: 'a', label: 'Pass Yds' },
+      { key: 'b', label: 'Pass TD' },
+      { key: 'c', label: 'INT' },
+      { key: 'd', label: 'Rating' },
+    ],
+    rows: demo.matchups.map((m) => ({
+      opp: m.opp,
+      games: m.games,
+      a: String(m.yds),
+      b: String(m.td),
+      c: String(m.int),
+      d: m.rating.toFixed(1),
+    })),
+    footnote: 'Mock opponent splits (passing-style columns).',
+  };
+
+  const rushSeasons = [
+    {
+      year: 2022,
+      gp: 17,
+      cmp: 0,
+      att: 68,
+      yds: 358,
+      td: 4,
+      int: 0,
+      rating: 0,
+      rec: 0,
+      tgt: 0,
+      trend: [55, 60, 58, 62, 59, 64, 61, 63],
+    },
+    {
+      year: 2023,
+      gp: 16,
+      cmp: 0,
+      att: 75,
+      yds: 389,
+      td: 4,
+      int: 0,
+      rating: 0,
+      rec: 0,
+      tgt: 0,
+      trend: [56, 58, 61, 59, 63, 60, 65, 62],
+    },
+    {
+      year: 2024,
+      gp: 16,
+      cmp: 0,
+      att: 58,
+      yds: 307,
+      td: 2,
+      int: 0,
+      rating: 0,
+      rec: 0,
+      tgt: 0,
+      trend: [54, 57, 59, 58, 60, 61, 59, 62],
+    },
+  ];
+
+  return {
+    statCategoryOrder: ['passing', 'rushing'],
+    defaultStatCategory: 'passing',
+    statViews: {
+      passing: {
+        key: 'passing',
+        title: 'Passing',
+        highlights: demo.highlights,
+        comparison: demo.comparison,
+        seasons: demo.seasons,
+        seasonRecap: demo.seasonRecap,
+        matchupGrid: passingGrid,
+      },
+      rushing: {
+        key: 'rushing',
+        title: 'Rushing',
+        highlights: [
+          { label: 'Rush Yds', value: '307', sub: '2024 reg' },
+          { label: 'Rush TD', value: '2', sub: '2024 reg' },
+          { label: 'Carries', value: '58', sub: '2024 reg' },
+          { label: 'Yards/carry', value: '5.29', sub: '2024 reg' },
+        ],
+        comparison: [
+          { key: 'ypc', label: 'Yards/carry', player: 5.29, leagueAvg: 4.3 },
+          { key: 'yds', label: 'Rush yds (season)', player: 307, leagueAvg: 850 },
+          { key: 'td', label: 'Rush TD', player: 2, leagueAvg: 8 },
+        ],
+        seasons: rushSeasons,
+        seasonRecap: {
+          categoryName: 'rushing',
+          columns: [
+            { key: 'ATT', label: 'ATT' },
+            { key: 'YDS', label: 'YDS' },
+            { key: 'TD', label: 'TD' },
+            { key: 'AVG', label: 'AVG' },
+          ],
+          rows: rushSeasons.map((s) => ({
+            year: s.year,
+            trend: s.trend,
+            values: [
+              String(s.att),
+              String(s.yds),
+              String(s.td),
+              s.att ? (s.yds / s.att).toFixed(2) : '—',
+            ],
+          })),
+        },
+        matchupGrid: {
+          columns: [
+            { key: 'a', label: 'Rush Yds' },
+            { key: 'b', label: 'Car' },
+            { key: 'c', label: 'Rush TD' },
+            { key: 'd', label: 'Y/A' },
+          ],
+          rows: [
+            { opp: 'DEN', games: 2, a: '78', b: '12', c: '1', d: '6.5' },
+            { opp: 'LAC', games: 2, a: '51', b: '9', c: '0', d: '5.7' },
+          ],
+          footnote: 'Mock rush-style opponent splits.',
+        },
+      },
+    },
+  };
+}
+
 export function getMockPlayer(id) {
-  const raw = mockPlayerById[id];
-  if (raw) return raw;
-  return mockPlayerById[DEFAULT_PLAYER_ID];
+  const raw = mockPlayerById[id] || mockPlayerById[DEFAULT_PLAYER_ID];
+  if (raw.statCategoryOrder) return raw;
+  if (raw.id === 'demo-qb') {
+    return { ...raw, ...buildDemoQbStatViews(raw) };
+  }
+  return raw;
 }

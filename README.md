@@ -1,3 +1,20 @@
+# Playerprops (NFL)
+
+NFL-focused player explorer: **search** uses a cached ESPN 32-team roster index; **player pages** for `espn-{id}` load ESPN core + stats + gamelog in parallel, then enrich with a **TheSportsDB** bio only when an `idESPN` match is found (no duplicate stat APIs). **Stat type tabs** on each live profile list every ESPN stat category returned for that player (passing, rushing, receiving, defense, returns, kicking, …); the default tab follows **listed position** (e.g. WR → receiving first) so you can still open passing or defensive lines when they exist.
+
+See **[docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)** for the five recommended sources and how responsibilities are split.
+
+Optional env:
+
+- `REACT_APP_SPORTSDB_API_KEY` — TheSportsDB API key (defaults to public demo key `3`).
+- `REACT_APP_ESPN_SITE_PROXY=1` — Force roster/overview `site.api` requests through your host’s `/api/espn-site` rewrite (needed when the app is not served from `localhost` but you still proxy ESPN).
+
+### ESPN `site.api` and CORS
+
+Team roster and some overview URLs hit **`site.api.espn.com`**, which often **does not** send `Access-Control-Allow-Origin` for arbitrary web origins. The app uses **`/api/espn-site`** (see `src/setupProxy.js` in dev and `vercel.json` in production) so the browser stays same-origin. Without that proxy, search index loading will fail in the console with CORS errors.
+
+---
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

@@ -156,9 +156,21 @@
   color: var(--color-text-primary);
 }
 
-.identity-panel__kpi-sub {
-  display: block;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-top: 2px;
+.identity-panel__avatar--img {
+  padding: 0;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+}
+
+@media (min-width: 1024px) {
+  .identity-panel__avatar--img {
+    border-radius: var(--radius-md);
+  }
+}
+
+.identity-panel__news {
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
 }

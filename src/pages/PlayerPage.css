@@ -25,3 +25,16 @@
   gap: var(--space-lg);
   min-width: 0;
 }
+
+.player-page--state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+}
+
+.player-page__state-msg {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}

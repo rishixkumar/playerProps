@@ -1,0 +1,13 @@
+.player-bio__source {
+  margin: -8px 0 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.player-bio__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}

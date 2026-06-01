@@ -1,42 +1,74 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MOCK_PLAYERS } from '../mock/player';
+import { ensureNflPlayerIndex, searchPlayerIndex } from '../services/nflPlayerIndex';
 import './TopNav.css';
 
 const APP_TABS = [
-  { to: '/player/demo-qb', label: 'Player', end: false },
+  { to: '/player/espn-3139477', label: 'Player', end: false },
   { to: '/props', label: 'Props', disabled: true },
   { to: '/news', label: 'News', disabled: true },
 ];
 
 function pathMatchesTab(pathname, to) {
-  if (to === '/player/demo-qb') return pathname.startsWith('/player');
+  if (to === '/player/espn-3139477') return pathname.startsWith('/player');
   return pathname === to;
+}
+
+function useDebouncedValue(value, delay) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
 export function TopNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, 220);
   const [openSuggest, setOpenSuggest] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [indexLoading, setIndexLoading] = useState(false);
+  const [indexError, setIndexError] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const indexRequested = useRef(false);
+
+  const ensureIndex = useCallback(async () => {
+    if (indexRequested.current) return;
+    indexRequested.current = true;
+    setIndexLoading(true);
+    setIndexError(null);
+    try {
+      const { players: list } = await ensureNflPlayerIndex();
+      setPlayers(list);
+    } catch (e) {
+      indexRequested.current = false;
+      setIndexError(e.message || 'Could not load NFL roster index');
+    } finally {
+      setIndexLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (openSuggest || menuOpen) {
+      ensureIndex();
+    }
+  }, [openSuggest, menuOpen, ensureIndex]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return MOCK_PLAYERS.slice(0, 5);
-    return MOCK_PLAYERS.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.team.toLowerCase().includes(q)
-    );
-  }, [query]);
+    return searchPlayerIndex(players, debouncedQuery, 12);
+  }, [players, debouncedQuery]);
 
-  function selectPlayer(id) {
+  function selectPlayer(routeId) {
     setQuery('');
     setOpenSuggest(false);
     setMenuOpen(false);
-    navigate(`/player/${id}`);
+    navigate(`/player/${routeId}`);
   }
+
+  const showList = openSuggest && (query.trim() || filtered.length > 0);
 
   return (
     <>
@@ -61,38 +93,71 @@ export function TopNav() {
             <input
               type="search"
               className="top-nav__search"
-              placeholder="Search players…"
+              placeholder="Search NFL players (ESPN roster index)…"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setOpenSuggest(true);
               }}
-              onFocus={() => setOpenSuggest(true)}
-              onBlur={() => {
-                setTimeout(() => setOpenSuggest(false), 150);
+              onFocus={() => {
+                setOpenSuggest(true);
+                ensureIndex();
               }}
-              aria-label="Search players"
+              onBlur={() => {
+                setTimeout(() => setOpenSuggest(false), 180);
+              }}
+              aria-label="Search NFL players"
               autoComplete="off"
             />
-            {openSuggest && filtered.length > 0 && (
-              <ul className="top-nav__suggestions" role="listbox">
-                {filtered.map((p) => (
-                  <li key={p.id} role="presentation">
-                    <button
-                      type="button"
-                      className="top-nav__suggestion"
-                      role="option"
-                      aria-selected="false"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectPlayer(p.id)}
-                    >
-                      {p.name}
-                      <span className="top-nav__suggestion-meta">
-                        {p.position} · {p.team}
-                      </span>
-                    </button>
+            {showList && (
+              <ul className="top-nav__suggestions" role="listbox" aria-label="Player search results">
+                {indexLoading && (
+                  <li className="top-nav__suggestion-meta top-nav__suggestion-pad">
+                    Loading roster index (32 teams)…
                   </li>
-                ))}
+                )}
+                {indexError && (
+                  <li className="top-nav__suggestion-meta top-nav__suggestion-pad top-nav__suggestion-error">
+                    {indexError}
+                  </li>
+                )}
+                {!indexLoading &&
+                  filtered.map((p) => (
+                    <li key={p.espnId} role="presentation">
+                      <button
+                        type="button"
+                        className="top-nav__suggestion top-nav__suggestion--rich"
+                        role="option"
+                        aria-selected="false"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => selectPlayer(p.routeId)}
+                      >
+                        {p.headshotHref ? (
+                          <img
+                            src={p.headshotHref}
+                            alt=""
+                            className="top-nav__suggestion-photo"
+                            width={40}
+                            height={40}
+                          />
+                        ) : (
+                          <span className="top-nav__suggestion-photo top-nav__suggestion-photo--ph" aria-hidden>
+                            {p.displayName?.slice(0, 1)}
+                          </span>
+                        )}
+                        <span className="top-nav__suggestion-main">
+                          <span className="top-nav__suggestion-name">{p.displayName}</span>
+                          <span className="top-nav__suggestion-meta">
+                            {p.positionAbbr} · {p.teamAbbr}
+                            <span className="top-nav__suggestion-pill">ESPN</span>
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                {!indexLoading && !indexError && query.trim() && filtered.length === 0 && (
+                  <li className="top-nav__suggestion-meta top-nav__suggestion-pad">No players match.</li>
+                )}
               </ul>
             )}
           </div>
@@ -102,11 +167,7 @@ export function TopNav() {
               const active = pathMatchesTab(location.pathname, tab.to);
               if (tab.disabled) {
                 return (
-                  <span
-                    key={tab.label}
-                    className="top-nav__tab"
-                    aria-disabled="true"
-                  >
+                  <span key={tab.label} className="top-nav__tab" aria-disabled="true">
                     {tab.label}
                   </span>
                 );
@@ -162,31 +223,58 @@ export function TopNav() {
           <input
             type="search"
             className="top-nav__search"
-            placeholder="Search players…"
+            placeholder="Search NFL players…"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
               setOpenSuggest(true);
+              ensureIndex();
             }}
-            aria-label="Search players"
+            onFocus={() => {
+              setOpenSuggest(true);
+              ensureIndex();
+            }}
+            aria-label="Search NFL players"
           />
-          {openSuggest && filtered.length > 0 && (
+          {showList && (
             <ul className="top-nav__suggestions" role="listbox">
-              {filtered.map((p) => (
-                <li key={p.id} role="presentation">
-                  <button
-                    type="button"
-                    className="top-nav__suggestion"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectPlayer(p.id)}
-                  >
-                    {p.name}
-                    <span className="top-nav__suggestion-meta">
-                      {p.position} · {p.team}
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {indexLoading && (
+                <li className="top-nav__suggestion-meta top-nav__suggestion-pad">Loading…</li>
+              )}
+              {indexError && (
+                <li className="top-nav__suggestion-meta top-nav__suggestion-pad">{indexError}</li>
+              )}
+              {!indexLoading &&
+                filtered.map((p) => (
+                  <li key={p.espnId} role="presentation">
+                    <button
+                      type="button"
+                      className="top-nav__suggestion top-nav__suggestion--rich"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectPlayer(p.routeId)}
+                    >
+                      {p.headshotHref ? (
+                        <img
+                          src={p.headshotHref}
+                          alt=""
+                          className="top-nav__suggestion-photo"
+                          width={40}
+                          height={40}
+                        />
+                      ) : (
+                        <span className="top-nav__suggestion-photo top-nav__suggestion-photo--ph" aria-hidden>
+                          {p.displayName?.slice(0, 1)}
+                        </span>
+                      )}
+                      <span className="top-nav__suggestion-main">
+                        <span className="top-nav__suggestion-name">{p.displayName}</span>
+                        <span className="top-nav__suggestion-meta">
+                          {p.positionAbbr} · {p.teamAbbr}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
             </ul>
           )}
         </div>

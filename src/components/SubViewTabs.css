@@ -42,3 +42,11 @@
 .sub-tabs__panel {
   min-height: 120px;
 }
+
+.sub-tabs__hint {
+  margin: var(--space-md) 0 0;
+  padding: 0 var(--space-sm);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}

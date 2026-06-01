@@ -4,6 +4,24 @@
   gap: var(--space-sm);
 }
 
+.stat-query__hint {
+  margin: -4px 0 var(--space-sm);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.stat-query__active {
+  margin: 0 0 var(--space-sm);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.stat-query__active strong {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 .stat-query__row {
   display: flex;
   flex-wrap: wrap;
