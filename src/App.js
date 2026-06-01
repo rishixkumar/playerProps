@@ -4,7 +4,7 @@ import { TopNav } from './components/TopNav';
 import { HomePage } from './pages/HomePage';
 import { NewsPage } from './pages/NewsPage';
 import { PlayerPage } from './pages/PlayerPage';
-import { PropsPage } from './pages/PropsPage';
+import { PropsPage } from './pages/props/PropsPage';
 
 export default function App() {
   return (

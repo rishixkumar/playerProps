@@ -4,6 +4,8 @@ NFL-focused player explorer: **search** uses a cached ESPN 32-team roster index;
 
 See **[docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)** for the five recommended sources and how responsibilities are split.
 
+**Layout:** feature-ish pages live under `src/pages/` (e.g. `src/pages/props/` for the Props route + its CSS/config). Shared UI for a feature is under `src/components/` (e.g. `src/components/props/`). Offline fallbacks and demo payloads are in **`src/mocks/`**; shared palette tokens are in **`src/constants/`** (e.g. `nflTeamColors.js`). `preloadMedia.js` waits on headshot URLs before showing the Props grid.
+
 Optional env:
 
 - `REACT_APP_SPORTSDB_API_KEY` — TheSportsDB API key (defaults to public demo key `3`).

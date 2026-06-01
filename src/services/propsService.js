@@ -1,9 +1,11 @@
 // src/services/propsService.js
 // Computes expected per-game prop lines from ESPN 2024 season stats.
 
+import { NFL_TEAM_COLORS as TEAM_COLORS } from '../constants/nflTeamColors';
+import { MOCK_PROP_PLAYER_BY_ID } from '../mocks/propsMocks';
+import { pickActiveTeamAbbr } from '../utils/espnTeamUtils';
 import { ensureNflPlayerIndex, searchPlayerIndex } from './nflPlayerIndex';
 import { fetchJson } from './http';
-import { pickActiveTeamAbbr } from '../utils/espnTeamUtils';
 
 // site.web.api allows CORS * — direct fetch is fine in the browser
 const espnStatsUrl = (id) =>
@@ -23,124 +25,7 @@ const BEST_VALUE_CANDIDATES = 48;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TEAM_COLORS = {
-  KC: '#e31837', BUF: '#00338d', CIN: '#fb4f14', SEA: '#002a5c',
-  DAL: '#003594', MIN: '#4f2683', SF: '#aa0000', NE: '#002244',
-  PHI: '#004c54', BAL: '#241773', MIA: '#008e97', GB: '#203731',
-  DEN: '#fb4f14', LAR: '#003594', TB: '#d50a0a', NO: '#d3bc8d',
-};
-
 const SOURCE_NAMES = ['PrizePicks', 'Underdog', 'Sleeper', 'Chalkboard'];
-
-// Per-player mock fallback for when ESPN fetch fails
-const MOCK_BY_ID = {
-  '3139477': {
-    displayName: 'Patrick Mahomes', position: 'QB', teamAbbr: 'KC',
-    props: [
-      { statLabel: 'Passing Yards', line: 274.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 274.5 }, { name: 'Underdog', line: 271.5 }, { name: 'Sleeper', line: 276 }],
-        projection: 281.2 },
-      { statLabel: 'Pass TDs', line: 2.5, unit: 'TDS', overOdds: '-130', underOdds: '+110',
-        sources: [{ name: 'PrizePicks', line: 2.5 }, { name: 'Underdog', line: 2.5 }, { name: 'Sleeper', line: 2.5 }],
-        projection: 2.7 },
-      { statLabel: 'Completions', line: 24.5, unit: 'CMP', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 24.5 }],
-        projection: 25.8 },
-    ],
-  },
-  '3918298': {
-    displayName: 'Josh Allen', position: 'QB', teamAbbr: 'BUF',
-    props: [
-      { statLabel: 'Passing Yards', line: 254.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 254.5 }, { name: 'Underdog', line: 252.0 }, { name: 'Sleeper', line: 256.5 }],
-        projection: 260.3 },
-      { statLabel: 'Pass TDs', line: 2.5, unit: 'TDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 2.5 }, { name: 'Underdog', line: 2.5 }, { name: 'Sleeper', line: 2.5 }],
-        projection: 2.6 },
-      { statLabel: 'Rush Yards', line: 34.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 34.5 }, { name: 'Underdog', line: 33.5 }, { name: 'Sleeper', line: 35.5 }],
-        projection: 36.2 },
-    ],
-  },
-  '4362628': {
-    displayName: "Ja'Marr Chase", position: 'WR', teamAbbr: 'CIN',
-    props: [
-      { statLabel: 'Receiving Yards', line: 88.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 88.5 }, { name: 'Underdog', line: 87 }, { name: 'Sleeper', line: 90 }],
-        projection: 96.3 },
-      { statLabel: 'Receptions', line: 6.5, unit: 'REC', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 6.5 }, { name: 'Underdog', line: 6 }, { name: 'Sleeper', line: 7 }],
-        projection: 6.9 },
-      { statLabel: 'Touchdowns', line: 0.5, unit: 'TDS', overOdds: '+130', underOdds: '-160',
-        sources: [{ name: 'PrizePicks', line: 0.5 }, { name: 'Sleeper', line: 0.5 }],
-        projection: 0.71 },
-    ],
-  },
-  '4430878': {
-    displayName: 'Jaxon Smith-Njigba', position: 'WR', teamAbbr: 'SEA',
-    props: [
-      { statLabel: 'Receiving Yards', line: 72.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 72.5 }, { name: 'Underdog', line: 71.5 }, { name: 'Sleeper', line: 73 }],
-        projection: 79.1 },
-      { statLabel: 'Receptions', line: 5.5, unit: 'REC', overOdds: '-120', underOdds: '+100',
-        sources: [{ name: 'PrizePicks', line: 5.5 }, { name: 'Underdog', line: 5 }, { name: 'Sleeper', line: 6 }],
-        projection: 5.8 },
-      { statLabel: 'Touchdowns', line: 0.5, unit: 'TDS', overOdds: '+140', underOdds: '-180',
-        sources: [{ name: 'PrizePicks', line: 0.5 }, { name: 'Sleeper', line: 0.5 }],
-        projection: 0.52 },
-    ],
-  },
-  '4241389': {
-    displayName: 'CeeDee Lamb', position: 'WR', teamAbbr: 'DAL',
-    props: [
-      { statLabel: 'Receiving Yards', line: 81.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 81.5 }, { name: 'Underdog', line: 80 }, { name: 'Sleeper', line: 82 }],
-        projection: 85.2 },
-      { statLabel: 'Receptions', line: 7.5, unit: 'REC', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 7.5 }, { name: 'Underdog', line: 7 }, { name: 'Sleeper', line: 7.5 }],
-        projection: 7.1 },
-    ],
-  },
-  '4262921': {
-    displayName: 'Justin Jefferson', position: 'WR', teamAbbr: 'MIN',
-    props: [
-      { statLabel: 'Receiving Yards', line: 84.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 84.5 }, { name: 'Underdog', line: 84 }, { name: 'Sleeper', line: 85 }],
-        projection: 88.7 },
-      { statLabel: 'Receptions', line: 6.5, unit: 'REC', overOdds: '-110', underOdds: '-120',
-        sources: [{ name: 'PrizePicks', line: 6.5 }, { name: 'Sleeper', line: 6 }],
-        projection: 6.2 },
-    ],
-  },
-  '3117251': {
-    displayName: 'Christian McCaffrey', position: 'RB', teamAbbr: 'SF',
-    props: [
-      { statLabel: 'Rush Yards', line: 68.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 68.5 }, { name: 'Underdog', line: 67 }, { name: 'Sleeper', line: 69 }],
-        projection: 72.4 },
-      { statLabel: 'Receptions', line: 5.5, unit: 'REC', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 5.5 }, { name: 'Underdog', line: 5 }, { name: 'Sleeper', line: 6 }],
-        projection: 5.2 },
-      { statLabel: 'Rush TDs', line: 0.5, unit: 'TDS', overOdds: '+120', underOdds: '-150',
-        sources: [{ name: 'PrizePicks', line: 0.5 }, { name: 'Sleeper', line: 0.5 }],
-        projection: 0.6 },
-    ],
-  },
-  '3915511': {
-    displayName: 'Joe Burrow', position: 'QB', teamAbbr: 'CIN',
-    props: [
-      { statLabel: 'Passing Yards', line: 268.5, unit: 'YDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 268.5 }, { name: 'Underdog', line: 267 }, { name: 'Sleeper', line: 270 }],
-        projection: 275.1 },
-      { statLabel: 'Pass TDs', line: 2.5, unit: 'TDS', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 2.5 }, { name: 'Underdog', line: 2.5 }, { name: 'Sleeper', line: 2.5 }],
-        projection: 2.4 },
-      { statLabel: 'Completions', line: 25.5, unit: 'CMP', overOdds: '-115', underOdds: '-115',
-        sources: [{ name: 'PrizePicks', line: 25.5 }, { name: 'Sleeper', line: 25 }],
-        projection: 26.2 },
-    ],
-  },
-};
 
 // ─── Leaderboard (ESPN statistics/byathlete) ─────────────────────────────────
 
@@ -604,7 +489,7 @@ function espnHeadshotUrl(espnId) {
 }
 
 function fallbackPropPlayer(espnId, positionHint, displayNameHint, teamAbbrHint) {
-  const mock = MOCK_BY_ID[espnId];
+  const mock = MOCK_PROP_PLAYER_BY_ID[espnId];
   if (!mock) return null;
   const teamAbbr = mock.teamAbbr || teamAbbrHint || '—';
   return {

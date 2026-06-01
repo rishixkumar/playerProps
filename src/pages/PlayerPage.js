@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getMockPlayer } from '../mock/player';
+import { getMockPlayer } from '../mocks/playerMocks';
 import { loadLivePlayerViewModel } from '../services/playerDataOrchestrator';
 import { ensureNflPlayerIndex } from '../services/nflPlayerIndex';
 import { parsePlayerRouteId } from '../utils/playerRouteId';
